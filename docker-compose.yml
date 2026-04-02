@@ -1,0 +1,85 @@
+name: minutor-backend-api
+
+services:
+  api:
+    image: webdevops/php-nginx:8.2-alpine
+    container_name: minutor-api
+    working_dir: /app
+    env_file:
+      - .env
+    environment:
+      WEB_DOCUMENT_ROOT: /app/public
+      APP_ENV: ${APP_ENV:-production}
+      APP_DEBUG: ${APP_DEBUG:-false}
+      APP_URL: ${APP_URL:-http://localhost:8080}
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - ./:/app
+    depends_on:
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "php -v >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  queue:
+    image: webdevops/php-nginx:8.2-alpine
+    container_name: minutor-queue
+    working_dir: /app
+    env_file:
+      - .env
+    command: ["php", "artisan", "queue:work", "--sleep=1", "--tries=1", "--timeout=90"]
+    volumes:
+      - ./:/app
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
+  scheduler:
+    image: webdevops/php-nginx:8.2-alpine
+    container_name: minutor-scheduler
+    working_dir: /app
+    env_file:
+      - .env
+    command: ["sh", "-lc", "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"]
+    volumes:
+      - ./:/app
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: minutor-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  db:
+    image: postgres:16-alpine
+    container_name: minutor-postgres
+    profiles: ["local-db"]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-minutor}
+      POSTGRES_USER: ${POSTGRES_USER:-minutor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-minutor}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-minutor}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  redis_data:
+  postgres_data:
