@@ -2,34 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
+use App\Http\Services\UserService;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
+    public function __construct(private readonly UserService $userService)
+    {
+    }
+
     /**
      * Display a listing of users
      */
     public function index(Request $request)
     {
-        $perPage = $request->get('per_page', 15);
-        $search = $request->get('search');
-
-        $query = User::query();
-
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
-            });
-        }
-
-        $users = $query->paginate($perPage);
-
-        return response()->json($users);
+        return $this->userService->index($request);
     }
 
     /**
@@ -37,21 +24,7 @@ class UserController extends Controller
      */
     public function indexPublic(Request $request)
     {
-        $perPage = $request->get('per_page', 15);
-        $search = $request->get('search');  
-
-        $query = User::query();
-
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
-            });
-        }
-
-        $users = $query->paginate($perPage);
-
-        return response()->json($users);
+        return $this->userService->indexPublic($request);
     }
 
     /**
@@ -59,23 +32,7 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
-            'is_admin' => 'sometimes|boolean',
-            'is_active' => 'sometimes|boolean',
-        ]);
-
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'is_admin' => $request->boolean('is_admin', false),
-            'is_active' => $request->boolean('is_active', true),
-        ]);
-
-        return response()->json($user, 201);
+        return $this->userService->store($request);
     }
 
     /**
@@ -83,8 +40,7 @@ class UserController extends Controller
      */
     public function show($id)
     {
-        $user = User::findOrFail($id);
-        return response()->json($user);
+        return $this->userService->show($id);
     }
 
     /**
@@ -92,32 +48,7 @@ class UserController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $user = User::findOrFail($id);
-        
-        $request->validate([
-            'name' => 'sometimes|required|string|max:255',
-            'email' => [
-                'sometimes',
-                'required',
-                'string',
-                'email',
-                'max:255',
-                Rule::unique('users')->ignore($user->id),
-            ],
-            'password' => 'sometimes|nullable|string|min:8',
-            'is_admin' => 'sometimes|boolean',
-            'is_active' => 'sometimes|boolean',
-        ]);
-
-        $updateData = $request->only(['name', 'email', 'is_admin', 'is_active']);
-
-        if ($request->filled('password')) {
-            $updateData['password'] = Hash::make($request->password);
-        }
-
-        $user->update($updateData);
-
-        return response()->json($user);
+        return $this->userService->update($request, $id);
     }
 
     /**
@@ -125,16 +56,7 @@ class UserController extends Controller
      */
     public function destroy(Request $request, $id)
     {
-        if (!$request->user() || !$request->user()->is_admin) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
-        $user = User::findOrFail($id);
-        $user->delete();
-
-        return response()->json([
-            'message' => 'User deleted successfully'
-        ]);
+        return $this->userService->destroy($request, $id);
     }
 
     /**
@@ -142,7 +64,7 @@ class UserController extends Controller
      */
     public function profile(Request $request)
     {
-        return response()->json($request->user());
+        return $this->userService->profile($request);
     }
 
     /**
@@ -150,23 +72,7 @@ class UserController extends Controller
      */
     public function updateProfile(Request $request)
     {
-        $user = $request->user();
-
-        $request->validate([
-            'name' => 'sometimes|required|string|max:255',
-            'email' => [
-                'sometimes',
-                'required',
-                'string',
-                'email',
-                'max:255',
-                Rule::unique('users')->ignore($user->id),
-            ],
-        ]);
-
-        $user->update($request->only(['name', 'email']));
-
-        return response()->json($user);
+        return $this->userService->updateProfile($request);
     }
 
     /**
@@ -174,26 +80,7 @@ class UserController extends Controller
      */
     public function updatePassword(Request $request)
     {
-        $request->validate([
-            'current_password' => 'required',
-            'password' => 'required|string|min:8|confirmed',
-        ]);
-
-        $user = $request->user();
-
-        if (!Hash::check($request->current_password, $user->getAuthPassword())) {
-            return response()->json([
-                'message' => 'Current password is incorrect'
-            ], 422);
-        }
-
-        $user->update([
-            'password' => Hash::make($request->password)
-        ]);
-
-        return response()->json([
-            'message' => 'Password updated successfully'
-        ]);
+        return $this->userService->updatePassword($request);
     }
 
     /**
@@ -201,13 +88,7 @@ class UserController extends Controller
      */
     public function lockUser($id)
     {
-        $user = User::findOrFail($id);
-        $user->update(['is_active' => false]);
-
-        return response()->json([
-            'message' => 'User locked successfully',
-            'user' => $user
-        ]);
+        return $this->userService->lockUser($id);
     }
 
     /**
@@ -215,12 +96,6 @@ class UserController extends Controller
      */
     public function unlockUser($id)
     {
-        $user = User::findOrFail($id);
-        $user->update(['is_active' => true]);
-
-        return response()->json([
-            'message' => 'User unlocked successfully',
-            'user' => $user
-        ]);
+        return $this->userService->unlockUser($id);
     }
 }

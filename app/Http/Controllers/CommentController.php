@@ -2,21 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Comment;
-use App\Models\Meeting;
+use App\Http\Services\CommentService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class CommentController extends Controller
 {
+    public function __construct(private readonly CommentService $commentService)
+    {
+    }
+
     /**
      * List comments for a meeting.
      */
     public function index(Request $request, $meetingId)
     {
-        $meeting = Meeting::findOrFail($meetingId);
-        $comments = $meeting->comments()->with('user')->orderBy('created_at', 'asc')->get();
-        return response()->json($comments);
+        return $this->commentService->index($request, $meetingId);
     }
 
     /**
@@ -24,38 +24,13 @@ class CommentController extends Controller
      */
     public function store(Request $request, $meetingId)
     {
-        $meeting = Meeting::findOrFail($meetingId);
-
-        $request->validate([
-            'text' => 'required|string|max:1000'
-        ]);
-
-        $comment = Comment::create([
-            'user_id' => Auth::id(),
-            'meeting_id' => $meeting->id,
-            'text' => $request->text,
-        ]);
-
-        return response()->json($comment->load('user'), 201);
+        return $this->commentService->store($request, $meetingId);
     }
 
 
     public function update(Request $request, $id)
     {
-        $comment = Comment::findOrFail($id);
-        $user = Auth::user();
-        if ($comment->user_id !== $user->id && !$user->is_admin) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
-        $request->validate([
-            'text' => 'required|string|max:1000'
-        ]);
-
-        $comment->text = $request->text;
-        $comment->save();
-
-        return response()->json($comment->load('user'));
+        return $this->commentService->update($request, $id);
     }
 
     /**
@@ -63,12 +38,6 @@ class CommentController extends Controller
      */
     public function destroy($id)
     {
-        $comment = Comment::findOrFail($id);
-        $user = Auth::user();
-        if ($comment->user_id !== $user->id && !$user->is_admin) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-        $comment->delete();
-        return response()->json(['message' => 'Comment deleted successfully']);
+        return $this->commentService->destroy($id);
     }
 }

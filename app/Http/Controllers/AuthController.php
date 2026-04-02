@@ -1,44 +1,21 @@
 <?php
 namespace App\Http\Controllers;
+
+use App\Http\Services\AuthService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    public function __construct(private readonly AuthService $authService)
+    {
+    }
+
     /**
      * Login user and create token
      */
     public function login(Request $request)
     {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
-
-        if (!Auth::attempt($request->only('email', 'password'))) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
-            ]);
-        }
-
-        $user = Auth::user();
-        
-        // Check if user is active (not locked)
-        if (!$user->is_active) {
-            Auth::logout();
-            throw ValidationException::withMessages([
-                'email' => ['Your account has been locked. Please contact an administrator.'],
-            ]);
-        }
-
-        $token = $user->createToken('auth-token')->plainTextToken;
-
-        return response()->json([
-            'user' => $user,
-            'token' => $token,
-            'token_type' => 'Bearer'
-        ]);
+        return $this->authService->login($request);
     }
 
     /**
@@ -46,11 +23,7 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
-
-        return response()->json([
-            'message' => 'Successfully logged out'
-        ]);
+        return $this->authService->logout($request);
     }
 
     /**
@@ -58,7 +31,7 @@ class AuthController extends Controller
      */
     public function user(Request $request)
     {
-        return response()->json($request->user());
+        return $this->authService->user($request);
     }
 
     /**
@@ -66,15 +39,6 @@ class AuthController extends Controller
      */
     public function refresh(Request $request)
     {
-        $user = $request->user();
-        $user->currentAccessToken()->delete();
-        
-        $token = $user->createToken('auth-token')->plainTextToken;
-
-        return response()->json([
-            'user' => $user,
-            'token' => $token,
-            'token_type' => 'Bearer'
-        ]);
+        return $this->authService->refresh($request);
     }
 }
