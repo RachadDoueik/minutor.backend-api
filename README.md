@@ -5,7 +5,7 @@ Meeting scheduling and collaboration backend built with Laravel and Sanctum.
 ## Tech Stack
 - PHP (Laravel)
 - Laravel Sanctum (API auth)
-- MySQL (or compatible)
+- PostgreSQL (or compatible)
 - Pest/PHPUnit (tests)
 
 ## Setup
@@ -24,7 +24,15 @@ Meeting scheduling and collaboration backend built with Laravel and Sanctum.
 4) Run
 - php artisan serve
 
-Optional (Docker): use the provided Dockerfile and docker/nginx.conf.
+## Docker
+- Build and run API, queue, scheduler, and Redis:
+	- docker compose up --build
+- If you also want a local PostgreSQL container, enable the `local-db` profile:
+	- docker compose --profile local-db up --build
+
+Notes:
+- `api`, `queue`, and `scheduler` are built from the repository `Dockerfile`.
+- The app source is bind-mounted for local development (`./:/app`).
 
 ## Auth
 - Login: POST /api/auth/login (email, password)

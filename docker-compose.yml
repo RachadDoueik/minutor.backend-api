@@ -1,8 +1,14 @@
 name: minutor-backend-api
 
+x-app-image: &app-image
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: minutor-backend-api:local
+
 services:
   api:
-    image: webdevops/php-nginx:8.2-alpine
+    <<: *app-image
     container_name: minutor-api
     working_dir: /app
     env_file:
@@ -16,6 +22,7 @@ services:
       - "${APP_PORT:-8080}:80"
     volumes:
       - ./:/app
+      - app_vendor:/app/vendor
     depends_on:
       redis:
         condition: service_started
@@ -27,7 +34,7 @@ services:
       retries: 3
 
   queue:
-    image: webdevops/php-nginx:8.2-alpine
+    <<: *app-image
     container_name: minutor-queue
     working_dir: /app
     env_file:
@@ -35,13 +42,14 @@ services:
     command: ["php", "artisan", "queue:work", "--sleep=1", "--tries=1", "--timeout=90"]
     volumes:
       - ./:/app
+      - app_vendor:/app/vendor
     depends_on:
       api:
         condition: service_started
     restart: unless-stopped
 
   scheduler:
-    image: webdevops/php-nginx:8.2-alpine
+    <<: *app-image
     container_name: minutor-scheduler
     working_dir: /app
     env_file:
@@ -49,6 +57,7 @@ services:
     command: ["sh", "-lc", "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"]
     volumes:
       - ./:/app
+      - app_vendor:/app/vendor
     depends_on:
       api:
         condition: service_started
@@ -81,5 +90,6 @@ services:
       retries: 5
 
 volumes:
+  app_vendor:
   redis_data:
   postgres_data:
