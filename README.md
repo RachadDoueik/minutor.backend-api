@@ -33,6 +33,7 @@ Meeting scheduling and collaboration backend built with Laravel and Sanctum.
 Notes:
 - `api`, `queue`, and `scheduler` are built from the repository `Dockerfile`.
 - The app source is bind-mounted for local development (`./:/app`).
+- Laravel writable directories (`/app/storage` and `/app/bootstrap/cache`) use Docker named volumes to avoid host permission issues.
 
 ## Auth
 - Login: POST /api/auth/login (email, password)
